@@ -1,10 +1,395 @@
-﻿<!DOCTYPE html>
-<html>
+ <!DOCTYPE html>
+<html lang="es">
 <head>
-    <meta charset="utf-8" />
-    <title></title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculadora Financiera de Préstamos - UCAB</title>
+  <!-- Chart.js para gráficos -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- jsPDF y html2canvas para exportación a PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    :root {
+      --primary: #00457C;
+      --secondary: #007bff;
+      --bg: #f4f7f6;
+      --card-bg: #ffffff;
+      --text: #333333;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    h1, h2, h3 {
+      color: var(--primary);
+    }
+    .intro-box {
+      background: #eef6ff;
+      border-left: 4px solid var(--secondary);
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+    }
+    label {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 8px;
+    }
+    input[type="number"], select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-sizing: border-box;
+    }
+    input[type="range"] {
+      width: 100%;
+    }
+    .btn {
+      background-color: var(--primary);
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      width: 100%;
+      transition: background 0.3s;
+    }
+    .btn:hover {
+      background-color: #002d52;
+    }
+    .btn-pdf {
+      background-color: #28a745;
+      margin-top: 15px;
+    }
+    .btn-pdf:hover {
+      background-color: #1e7e34;
+    }
+    .results-box {
+      margin-top: 25px;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .payment-display {
+      font-size: 28px;
+      font-weight: bold;
+      color: var(--primary);
+    }
+    .charts-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 25px;
+    }
+    @media (max-width: 768px) {
+      .charts-container {
+        grid-template-columns: 1fr;
+      }
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: var(--primary);
+      color: white;
+    }
+    .credits-section {
+      margin-top: 40px;
+      padding: 15px;
+      background-color: #e9ecef;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+    .credits-section:hover {
+      transform: rotate(-1deg);
+    }
+    .citation-box {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 20px;
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+    }
+  </style>
 </head>
 <body>
+
+<div class="container" id="reportContent">
+  <h1>Calculadora Financiera de Préstamos</h1>
+  
+  <div class="intro-box">
+    <h3>¿Para qué sirve esta herramienta?</h3>
+    <p>Esta calculadora permite simular la estructura de pagos de un préstamo utilizando sistemas de amortización de cuota constante. Visualiza fácilmente la proporción entre capital e intereses, analiza el flujo de caja y exporta reportes ejecutivos para la toma de decisiones financieras.</p>
+    <p><strong>Instrucciones:</strong> Ajusta los valores directamente en los campos o desliza las barras de selección (sliders) para actualizar los parámetros deseados. Selecciona la divisa adecuada y presiona "Calcular".</p>
+  </div>
+
+  <div class="form-group">
+    <label for="currency">Divisa:</label>
+    <select id="currency" onchange="calculateLoan()">
+      <option value="$">$ (USD)</option>
+      <option value="€">€ (EUR)</option>
+      <option value="£">£ (GBP)</option>
+      <option value="Bs.">Bs. (VES)</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="amount">Monto del Préstamo: <span id="amountVal">10000</span></label>
+    <input type="number" id="amount" value="10000" oninput="syncInputs('amount', 'amountSlider')">
+    <input type="range" id="amountSlider" min="500" max="100000" step="500" value="10000" oninput="syncInputs('amountSlider', 'amount')">
+  </div>
+
+  <div class="form-group">
+    <label for="interest">Tasa de Interés Anual (%): <span id="interestVal">12</span></label>
+    <input type="number" id="interest" value="12" step="0.1" oninput="syncInputs('interest', 'interestSlider')">
+    <input type="range" id="interestSlider" min="1" max="50" step="0.5" value="12" oninput="syncInputs('interestSlider', 'interest')">
+  </div>
+
+  <div class="form-group">
+    <label for="months">Plazo (Meses): <span id="monthsVal">12</span></label>
+    <input type="number" id="months" value="12" oninput="syncInputs('months', 'monthsSlider')">
+    <input type="range" id="monthsSlider" min="1" max="60" step="1" value="12" oninput="syncInputs('monthsSlider', 'months')">
+  </div>
+
+  <button class="btn" onclick="calculateLoan()">Calcular Préstamo</button>
+
+  <div class="results-box" id="results">
+    <h2>Cuota Mensual Estimada</h2>
+    <div class="payment-display" id="monthlyPayment">-</div>
+    <p>Total Intereses: <span id="totalInterest">-</span> | Total a Pagar: <span id="totalPaid">-</span></p>
+  </div>
+
+  <div class="charts-container">
+    <div>
+      <canvas id="pieChart"></canvas>
+    </div>
+    <div>
+      <canvas id="cashFlowChart"></canvas>
+    </div>
+  </div>
+
+  <div style="margin-top: 20px;">
+    <canvas id="cashBalanceChart"></canvas>
+  </div>
+
+  <h3>Tabla de Amortización (Desglose Mensual)</h3>
+  <div style="overflow-x: auto;">
+    <table id="amortizationTable">
+      <thead>
+        <tr>
+          <th>Mes</th>
+          <th>Cuota</th>
+          <th>Capital</th>
+          <th>Intereses</th>
+          <th>Saldo Restante</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <button class="btn btn-pdf" onclick="exportPDF()">Exportar Reporte en PDF</button>
+
+  <div class="credits-section" onclick="alert('Para cualquier consulta escribir a la dirección de correo del Coordinador: XXX@ucab.edu.ve')">
+    <h4>👥 Créditos del Proyecto</h4>
+    <p>Haz clic aquí para ver la información de contacto del Coordinador del Equipo.</p>
+  </div>
+
+  <div class="citation-box">
+    <strong>Referencia Bibliográfica (APA 7ma Ed.):</strong><br>
+    Blank, L. T., & Tarquin, A. J. (2012). <i>Ingeniería económica</i> (7.ª ed.). McGraw-Hill.
+  </div>
+</div>
+
+<script>
+  let pieChartInstance = null;
+  let cashFlowChartInstance = null;
+  let cashBalanceChartInstance = null;
+
+  function syncInputs(sourceId, targetId) {
+    const val = document.getElementById(sourceId).value;
+    document.getElementById(targetId).value = val;
+    if (document.getElementById(sourceId + 'Val')) {
+      document.getElementById(sourceId + 'Val').innerText = val;
+    }
+    if (document.getElementById(targetId + 'Val')) {
+      document.getElementById(targetId + 'Val').innerText = val;
+    }
+    calculateLoan();
+  }
+
+  function calculateLoan() {
+    const currency = document.getElementById('currency').value;
+    const amount = parseFloat(document.getElementById('amount').value);
+    const annualInterest = parseFloat(document.getElementById('interest').value);
+    const months = parseInt(document.getElementById('months').value);
+
+    if (isNaN(amount) || isNaN(annualInterest) || isNaN(months) || amount <= 0 || months <= 0) return;
+
+    const monthlyRate = (annualInterest / 100) / 12;
+    let monthlyPayment = 0;
+
+    if (monthlyRate === 0) {
+      monthlyPayment = amount / months;
+    } else {
+      monthlyPayment = (amount * monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+    }
+
+    const totalPaid = monthlyPayment * months;
+    const totalInterest = totalPaid - amount;
+
+    document.getElementById('monthlyPayment').innerText = `${currency} ${monthlyPayment.toFixed(2)}`;
+    document.getElementById('totalInterest').innerText = `${currency} ${totalInterest.toFixed(2)}`;
+    document.getElementById('totalPaid').innerText = `${currency} ${totalPaid.toFixed(2)}`;
+
+    generateAmortizationTable(amount, monthlyRate, months, monthlyPayment, currency);
+    renderCharts(amount, totalInterest, monthlyPayment, months);
+  }
+
+  function generateAmortizationTable(amount, monthlyRate, months, monthlyPayment, currency) {
+    const tbody = document.querySelector('#amortizationTable tbody');
+    tbody.innerHTML = '';
+    let balance = amount;
+
+    for (let i = 1; i <= months; i++) {
+      const interestPayment = balance * monthlyRate;
+      const capitalPayment = monthlyPayment - interestPayment;
+      balance -= capitalPayment;
+      if (balance < 0) balance = 0;
+
+      const row = `<tr>
+        <td>${i}</td>
+        <td>${currency} ${monthlyPayment.toFixed(2)}</td>
+        <td>${currency} ${capitalPayment.toFixed(2)}</td>
+        <td>${currency} ${interestPayment.toFixed(2)}</td>
+        <td>${currency} ${balance.toFixed(2)}</td>
+      </tr>`;
+      tbody.innerHTML += row;
+    }
+  }
+
+  function renderCharts(principal, totalInterest, monthlyPayment, months) {
+    // 1. Gráfico de Pastel: Capital vs Intereses
+    const ctxPie = document.getElementById('pieChart').getContext('2d');
+    if (pieChartInstance) pieChartInstance.destroy();
+    pieChartInstance = new Chart(ctxPie, {
+      type: 'pie',
+      data: {
+        labels: ['Capital Prestado', 'Total Intereses'],
+        datasets: [{
+          data: [principal, totalInterest],
+          backgroundColor: ['#00457C', '#ff6384']
+        }]
+      },
+      options: { responsive: true, plugins: { title: { display: true, text: 'Distribución Capital vs Intereses' } } }
+    });
+
+    // 2. Diagrama de Flujo de Efectivo (Cash Flow Diagram)
+    const ctxFlow = document.getElementById('cashFlowChart').getContext('2d');
+    if (cashFlowChartInstance) cashFlowChartInstance.destroy();
+    
+    const labels = Array.from({length: months + 1}, (_, i) => `Mes ${i}`);
+    const flowData = [-monthlyPayment]; 
+    const flows = [principal].concat(Array(months).fill(-monthlyPayment));
+
+    cashFlowChartInstance = new Chart(ctxFlow, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Flujo de Efectivo',
+          data: flows,
+          backgroundColor: flows.map(v => v >= 0 ? '#28a745' : '#dc3545')
+        }]
+      },
+      options: { responsive: true, plugins: { title: { display: true, text: 'Diagrama de Flujo de Efectivo (Cash Flow)' } } }
+    });
+
+    // 3. Cuadro de Saldo de Efectivo (Cash Balance Chart)
+    const ctxBalance = document.getElementById('cashBalanceChart').getContext('2d');
+    if (cashBalanceChartInstance) cashBalanceChartInstance.destroy();
+
+    let balanceTrack = [principal];
+    let currentBalance = principal;
+    const monthlyRate = (parseFloat(document.getElementById('interest').value) / 100) / 12;
+
+    for (let i = 1; i <= months; i++) {
+      let interest = currentBalance * monthlyRate;
+      let cap = monthlyPayment - interest;
+      currentBalance -= cap;
+      balanceTrack.push(Math.max(0, currentBalance));
+    }
+
+    cashBalanceChartInstance = new Chart(ctxBalance, {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Saldo Restante de la Deuda',
+          data: balanceTrack,
+          borderColor: '#007bff',
+          fill: false,
+          tension: 0.1
+        }]
+      },
+      options: { responsive: true, plugins: { title: { display: true, text: 'Evolución del Saldo de Deuda (Cash Balance Chart)' } } }
+    });
+  }
+
+  function exportPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    
+    html2canvas(document.getElementById('reportContent')).then(canvas => {
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        doc.addPage();
+        doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+      doc.save('Reporte_Calculadora_Financiera.pdf');
+    });
+  }
+
+  // Inicializar al cargar
+  window.onload = calculateLoan;
+</script>
 
 </body>
 </html>
